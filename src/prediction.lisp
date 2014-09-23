@@ -89,81 +89,90 @@
         collect `(,k ,(gethash k hash-table))))
 
 (defmacro cut:choose (tag
-                      &key parameters generators features
+                      &key generators features
                        constraints (attempts 1) predicting
                        (predicting-attempts (1- attempts))
                        body)
-  `(:tag ,tag
-     (block choose-block
-       (sleep 0.1)
-       (let ((generated-param-hash-table (make-hash-table))
-             (attempts ,attempts)
-             (predicting-attempts ,predicting-attempts))
-         (labels ((generate-parameters ()
-                    ,@(loop for (variables generator) in generators
-                            collect
-                            `(let ((generated-values ,generator))
-                               ,@(loop for i from 0 below (length variables)
-                                       as variable = (nth i variables)
-                                       collect `(setf (gethash
-                                                       ',variable
-                                                       generated-param-hash-table)
-                                                      (nth ,i generated-values)))))))
-           (loop with continue = t
-                 while (and continue (>= (decf attempts) 0))
-                 do (progn
-                      (generate-parameters)
-                      (let* ,(mapcar (lambda (parameter)
-                                       `(,parameter (gethash
-                                                     ',parameter
-                                                     generated-param-hash-table)))
-                              parameters)
-                        ,@(mapcar (lambda (parameter)
-                                    `(declare (ignorable ,parameter)))
-                                  parameters)
-                        (let* ,(append
-                                `((feature-hashes (make-hash-table)))
-                                (mapcar (lambda (feature)
-                                          (destructuring-bind (var gen)
-                                              feature
-                                            `(,var (setf (gethash
-                                                          ',var feature-hashes)
-                                                         ,gen))))
-                                        features))
-                          ,@(mapcar (lambda (feature)
-                                      (destructuring-bind (var gen) feature
-                                        (declare (ignore gen))
-                                        `(declare (ignorable ,var))))
-                                    features)
-                          (let ((predicted-failures
-                                  (cond (cram-prediction::*enable-prediction*
-                                         (cram-prediction::call-predict
-                                          feature-hashes `(failures)))
-                                        (t (make-hash-table)))))
-                            (when (or (not cram-prediction::*enable-prediction*)
-                                      (not (>= 0 (decf predicting-attempts)))
-                                      (and ,@(mapcar
-                                              (lambda (constraint)
-                                                (destructuring-bind (failure
-                                                                     comparator)
-                                                    constraint
-                                                  `(let ((cut::predicted-failure
-                                                           (gethash
-                                                            ',failure
-                                                            predicted-failures)))
-                                                     ,comparator)))
-                                              constraints))
-                                      (format t " -  Retry!~%"))
-                              (setf continue nil)
-                              (cram-prediction::annotate-features feature-hashes)
-                              (let ((predicted-values
-                                      (cond (cram-prediction::*enable-prediction*
-                                             (cram-prediction::call-predict
-                                              feature-hashes ',predicting))
-                                            (t (make-hash-table)))))
-                                (labels ((predicted (key)
-                                           (gethash key predicted-values)))
-                                  (declare (ignorable (function predicted)))
-                                  (return-from choose-block
-                                    (values (progn ,body) t))))))))))
-           (return-from choose-block (values nil nil)))))))
+  (let ((parameters (alexandria:flatten
+                     (mapcar (lambda (generator)
+                               (destructuring-bind (vars gens)
+                                   generator
+                                 (declare (ignore gens))
+                                 vars))
+                             generators))))
+    `(:tag ,tag
+       (block choose-block
+         (sleep 0.1)
+         (let ((generated-param-hash-table (make-hash-table))
+               (attempts ,attempts)
+               (predicting-attempts ,predicting-attempts))
+           (declare (ignorable generated-param-hash-table))
+           (labels ((generate-parameters ()
+                      ,@(loop for (variables generator) in generators
+                              collect
+                              `(let ((generated-values ,generator))
+                                 ,@(loop for i from 0 below (length variables)
+                                         as variable = (nth i variables)
+                                         collect `(setf (gethash
+                                                         ',variable
+                                                         generated-param-hash-table)
+                                                        (nth ,i generated-values)))))))
+             (loop with continue = t
+                   while (and continue (>= (decf attempts) 0))
+                   do (progn
+                        (generate-parameters)
+                        (let* ,(mapcar (lambda (parameter)
+                                         `(,parameter (gethash
+                                                       ',parameter
+                                                       generated-param-hash-table)))
+                                parameters)
+                          ,@(mapcar (lambda (parameter)
+                                      `(declare (ignorable ,parameter)))
+                                    parameters)
+                          (let* ,(append
+                                  `((feature-hashes (make-hash-table)))
+                                  (mapcar (lambda (feature)
+                                            (destructuring-bind (var gen)
+                                                feature
+                                              `(,var (setf (gethash
+                                                            ',var feature-hashes)
+                                                           ,gen))))
+                                          features))
+                            ,@(mapcar (lambda (feature)
+                                        (destructuring-bind (var gen) feature
+                                          (declare (ignore gen))
+                                          `(declare (ignorable ,var))))
+                                      features)
+                            (let ((predicted-failures
+                                    (cond (cram-prediction::*enable-prediction*
+                                           (cram-prediction::call-predict
+                                            feature-hashes `(failures)))
+                                          (t (make-hash-table)))))
+                              (when (or (not cram-prediction::*enable-prediction*)
+                                        (not (>= 0 (decf predicting-attempts)))
+                                        (and ,@(mapcar
+                                                (lambda (constraint)
+                                                  (destructuring-bind (failure
+                                                                       comparator)
+                                                      constraint
+                                                    `(let ((cut::predicted-failure
+                                                             (gethash
+                                                              ',failure
+                                                              predicted-failures)))
+                                                       (or (not cut::predicted-failure)
+                                                           ,comparator))))
+                                                constraints))
+                                        (format t " -  Retry!~%"))
+                                (setf continue nil)
+                                (cram-prediction::annotate-features feature-hashes)
+                                (let ((predicted-values
+                                        (cond (cram-prediction::*enable-prediction*
+                                               (cram-prediction::call-predict
+                                                feature-hashes ',predicting))
+                                              (t (make-hash-table)))))
+                                  (labels ((predicted (key)
+                                             (gethash key predicted-values)))
+                                    (declare (ignorable (function predicted)))
+                                    (return-from choose-block
+                                      (values (progn ,body) t))))))))))
+             (return-from choose-block (values nil nil))))))))
