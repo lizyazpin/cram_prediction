@@ -149,7 +149,7 @@
                                             feature-hashes `(failures)))
                                           (t (make-hash-table)))))
                               (when (or (not cram-prediction::*enable-prediction*)
-                                        (not (>= 0 (decf predicting-attempts)))
+                                        (not (>= (decf predicting-attempts) 0))
                                         (and ,@(mapcar
                                                 (lambda (constraint)
                                                   (destructuring-bind (failure
