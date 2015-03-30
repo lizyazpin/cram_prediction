@@ -43,5 +43,5 @@
                 action-desig)
   (:import-from :cram-language def-cram-function def-top-level-cram-function)
   (:import-from :cram-reasoning def-fact-group <- not)
-  (:export choose load-model)
+  (:export choose load-model load-decision-tree)
   (:desig-properties))

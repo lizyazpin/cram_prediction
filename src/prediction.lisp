@@ -144,10 +144,11 @@
                                           `(declare (ignorable ,var))))
                                       features)
                             (let ((predicted-failures
-                                    (cond (cram-prediction::*enable-prediction*
-                                           (cram-prediction::call-predict
-                                            feature-hashes `(failures)))
-                                          (t (make-hash-table)))))
+                                    (or (and cram-prediction::*enable-prediction*
+                                             (cram-prediction::call-predict
+                                              feature-hashes `(failures)))
+                                        (make-hash-table))))
+                              (declare (ignorable predicted-failures))
                               (when (or (not cram-prediction::*enable-prediction*)
                                         (not (>= (decf predicting-attempts) 0))
                                         (and ,@(mapcar
