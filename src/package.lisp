@@ -30,8 +30,8 @@
 
 (desig-props:def-desig-package cram-prediction
   (:nicknames prediction)
-  (:use #:common-lisp #:roslisp #:cram-utilities #:designators-ros
-        #:cram-roslisp-common #:cram-designators)
+  (:use #:common-lisp #:roslisp #:cram-utilities #:cram-tf
+        #:cl-transforms-stamped #:cram-designators)
   (:import-from :cram-language 
                 top-level fl-funcall with-tags pursue tag retry-after-suspension
                 whenever pulsed value with-task-suspended seq)
@@ -42,6 +42,6 @@
                 desig-prop
                 action-desig)
   (:import-from :cram-language def-cram-function def-top-level-cram-function)
-  (:import-from :cram-reasoning def-fact-group <- not)
+  (:import-from :cram-prolog def-fact-group <- not)
   (:export choose load-model load-decision-tree)
   (:desig-properties))

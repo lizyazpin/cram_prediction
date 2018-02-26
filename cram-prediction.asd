@@ -36,8 +36,10 @@
   :depends-on (cram-language
 	       roslisp
 	       roslisp-utilities
-	       cram-reasoning
-               designators-ros
+	       cram-prolog
+               ;designators-ros
+               cram-designators
+               cl-transforms-stamped
 	       alexandria)
   :components
   ((:module "src"
